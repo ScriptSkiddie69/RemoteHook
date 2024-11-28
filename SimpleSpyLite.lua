@@ -2072,7 +2072,7 @@ end)
 
 --- Gets the calling script (not super reliable but w/e)
 newButton("Get Script", function()
-	return "(LITE BY OSINT BOSS [ LAGGY ])Click to copy calling script to clipboard\nWARNING: Not super reliable, nil == could not find"
+	return "Click to copy calling script to clipboard\nWARNING: Not super reliable, nil == could not find"
 end, function()
 	if selected then
         warn('Dumping scripts and finding calling script (remote caller localscript) - This may be laggy')
