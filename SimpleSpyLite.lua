@@ -11,10 +11,54 @@
 
 -- shuts down the previous instance of SimpleSpy
 --// Rhook installation
-getgenv().abss = -16 -- the offset of the cursor had to make a global var so i can calculate the exact position
-warn('SimpleSpy v2.5 (FIXED BY OSINT BOSS)')
+local decompile = decompile or warn('ERROR LEVEL 3 : EXPLOIT FUNCTION NOT SUPPORTED (DECOMPILE)')
+local makefolder = makefolder or warn('ERROR LEVEL 3 : EXPLOIT FUNCTION NOT SUPPORTED (DECOMPILE)')
+local writefile = writefile or warn('ERROR LEVEL 3 : EXPLOIT FUNCTION NOT SUPPORTED (DECOMPILE)')
+local appendfile = appendfile or warn('ERROR LEVEL 3 : EXPLOIT FUNCTION NOT SUPPORTED (DECOMPILE)')
+makefolder('SimpleSpyLite')
+makefolder('SimpleSpyLite//DumpLogs')
+makefolder('SimpleSpyLite//DumpLogs//' .. game.PlaceId)
+makefolder('SimpleSpyLite//ScanLogs')
+makefolder('SimpleSpyLite//ScanLogs//' .. game.PlaceId)
+function save_logs(path)
+	for _,scripts in ipairs(path:GetDescendants()) do
+		if scripts:IsA('LocalScript') then
+			makefolder('SimpleSpyLite//DumpLogs//' .. game.PlaceId .. '//game.' .. scripts:GetFullName())
+			appendfile('SimpleSpyLite//DumpLogs//' .. game.PlaceId .. '//game.' .. scripts:GetFullName() .. '//Source.txt', decompile(scripts))
+			appendfile('SimpleSpyLite//DumpLogs//' .. game.PlaceId .. '//game.' .. scripts:GetFullName() .. '//Scanned_Remote.txt', 'h')
+		end
+	end
+end
+getgenv().abss = _G.data['CursorOffset'] -- the offset of the cursor had to make a global var so i can calculate the exact position
+
+if _G.data['SaveDecompileLogs'] then
+	warn('⚠️ - Saving decompile logs...')
+	local cur_time = tick()
+	save_logs(game.Players.LocalPlayer)
+	if game.Players.LocalPlayer.Character then
+	save_logs(game.Players.LocalPlayer.Character)
+	end
+	save_logs(game:GetService('ReplicatedStorage'))
+	save_logs(game:GetService('ReplicatedFirst'))
+	print('✅ - LocalScripts have been dumped! | time taken: ' .. tick() - cur_time .. ' seconds')
+end
+warn('⚠️ - Initializing RemoteHook/main.lua')
 loadstring(game:HttpGet('https://raw.githubusercontent.com/ScriptSkiddie69/RemoteHook/refs/heads/main/Installation.lua'))()
 local code = loadstring(readfile('RemoteHook//main.lua'))()
+warn('✅ - Initialized RemoteHook/main.lua')
+
+if _G.data['SaveScanLogs'] then
+	warn('⚠️ - Saving scan logs...')
+	local cur_time = tick()
+	for _,scripts in ipairs(game:GetDescendants()) do
+		if scripts:IsA('LocalScript') then
+			appendfile('SimpleSpyLite//ScanLogs//'.. game.PlaceId .. '//game.' .. scripts:GetFullName() .. '.txt', 'game.' .. scripts:GetFullName())
+		end
+	end
+	print('✅ - Scan logs has been saved! | time taken: ' .. tick() - cur_time .. ' seconds')
+end
+warn('Loading SimpleSpy v2.5 lite by osint boss')
+
 --\\
 local Players = game:GetService("Players")
 local CoreGui = game:GetService("CoreGui")
@@ -908,7 +952,7 @@ function mouseEntered()
 			local mouseLocation = UserInputService:GetMouseLocation() - Vector2.new(0, 36)
 			customCursor.Position = UDim2.fromOffset(
 				mouseLocation.X - (customCursor.AbsoluteSize.X / 2),
-				mouseLocation.Y - (customCursor.AbsoluteSize.Y / 2) + getgenv().abss
+				mouseLocation.Y - (customCursor.AbsoluteSize.Y / 2) + _G.data['CursorOffset']
 			)
 			local inRange, type = isInResizeRange(mouseLocation)
 			if inRange and not sideClosed and not closed then
@@ -2071,13 +2115,30 @@ end, function()
 end)
 
 --- Gets the calling script (not super reliable but w/e)
-newButton("Get Script", function()
-	return "Click to copy calling script to clipboard\nWARNING: Not super reliable, nil == could not find"
+newButton("Decompile", function()
+	return "Click to copy remote calling script to clipboard\nWARNING: Not super reliable, nil == could not find"
 end, function()
 	if selected then
         warn('Dumping scripts and finding calling script (remote caller localscript) - This may be laggy')
         warn('If your clipboard isnt set to anything then it probably failed')
-        for _,v in ipairs(game.Players.LocalPlayer:GetDescendants()) do
+		--\\ File handler
+		if _G.data['SaveScanLogs'] then
+			warn('Method: SaveScanLogs')
+		for i,v in ipairs(listfiles('SimpleSpyLite//ScanLogs//' .. game.PlaceId)) do
+			warn('Decompiling remote progress: '..i,v)
+			if isfolder('SimpleSpyLite//DumpLogs//' .. game.PlaceId .. v) then
+				if isfile('SimpleSpyLite//DumpLogs//' .. game.PlaceId .. v .. '//Source.txt') then
+					
+					local script = 'SimpleSpyLite//DumpLogs//' .. game.PlaceId .. v .. '//Source.txt'
+					if code.traceline(script, selected.Remote.Name) then
+						warn('Traced a calling script! ' .. v:GetFullName())
+						setclipboard(script)
+					end
+				end
+			end
+		end
+	else
+		for _,v in ipairs(game.Players.LocalPlayer:GetDescendants()) do
             if v:IsA('LocalScript') then
                 local script = decompile(v)
                 
@@ -2099,11 +2160,35 @@ end, function()
             end
         end
     end
+	end
+        --[[for _,v in ipairs(game.Players.LocalPlayer:GetDescendants()) do
+            if v:IsA('LocalScript') then
+                local script = decompile(v)
+                
+                if code.traceline(script, selected.Remote.Name) then
+                    warn('Traced a calling script! ' .. v:GetFullName())
+		setclipboard(script)
+                end
+            end
+        end
+        if game.Players.LocalPlayer.Character then
+        for _,v in ipairs(game.Players.LocalPlayer.Character:GetDescendants()) do
+            if v:IsA('LocalScript') then
+                local script = decompile(v)
+                
+                if code.traceline(script, selected.Remote.Name) then
+                    warn('Traced a calling script! ' .. v:GetFullName())
+		setclipboard(script)
+                end
+            end
+        end
+    end]]
         TextLabel.Text = "Done! get calling script by RemoteHook made by osint boss"
 	end
 end)
 
 --- Decompiles the script that fired the remote and puts it in the code box
+--[[
 newButton("Function Info", function()
 	return "Click to view calling function information"
 end, function()
@@ -2116,7 +2201,7 @@ end, function()
 		TextLabel.Text = "Done! Function info generated by the SimpleSpy Serializer."
 	end
 end)
-
+]]
 --- Clears the Remote logs
 newButton("Clr Logs", function()
 	return "Click to clear logs"
@@ -2154,13 +2239,14 @@ end, function()
 end)
 
 --- clears blacklist
+
 newButton("Clr Blacklist", function()
 	return "Click to clear the blacklist.\nExcluding a remote makes SimpleSpy ignore it, but it will continue to be usable."
 end, function()
 	blacklist = {}
 	TextLabel.Text = "Blacklist cleared!"
 end)
-
+--[[
 --- Prevents the selected.Log Remote from firing the server (still logged)
 newButton("Block (i)", function()
 	return "Click to stop this remote from firing.\nBlocking a remote won't remove it from SimpleSpy logs, but it will not continue to fire the server."
@@ -2247,7 +2333,7 @@ end, function()
 		useGetCallingScript and "ENABLED" or "DISABLED"
 	)
 end)
-
+]]
 newButton("KeyToString", function()
 	return string.format(
 		"[%s] [BETA] Uses an experimental new function to replicate Roblox's behavior when a non-primitive type is used as a key in a table. Still in development and may not properly reflect tostringed (empty) userdata.",
@@ -2294,7 +2380,9 @@ for i,remote in ipairs(game:GetDescendants()) do
             type = "spy",
             arguments = "",
             callback = function(value)
+                if not blacklist[rem] or blacklist[rem.Name] then
             newRemote('event', rem.Name, value, rem, nil, false, "abc", false)
+                end
             end
         
         })
@@ -2308,7 +2396,9 @@ game.DescendantAdded:Connect(function(remote)
             type = "spy",
             arguments = "",
             callback = function(value)
+                if not blacklist[rem] or blacklist[rem.Name] then
             newRemote('event', rem.Name, value, rem, nil, false, "abc", false)
+                end
             end
         
         })
