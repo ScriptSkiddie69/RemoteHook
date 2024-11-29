@@ -2129,7 +2129,7 @@ end, function()
 			if isfolder('SimpleSpyLite//DumpLogs//' .. game.PlaceId .. v) then
 				if isfile('SimpleSpyLite//DumpLogs//' .. game.PlaceId .. v .. '//Source.txt') then
 					
-					local script = 'SimpleSpyLite//DumpLogs//' .. game.PlaceId .. v .. '//Source.txt'
+					local script = readfile('SimpleSpyLite//DumpLogs//' .. game.PlaceId .. v .. '//Source.txt')
 					if code.traceline(script, selected.Remote.Name) then
 						warn('Traced a calling script! ' .. v:GetFullName())
 						setclipboard(script)
