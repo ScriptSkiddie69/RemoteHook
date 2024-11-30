@@ -1,45 +1,48 @@
 --[[
-    SimpleSpy v2.5 SOURCE (SIMPLESPY LITE BY OSINT BOSS) 
-
     SimpleSpy is a lightweight penetration testing tool that logs remote calls.
 
     Credits:
         exx - basically everything
         Frosty - GUI to Lua
-        OSINT BOSS - Fixing the hooking so it works for solara
+        OSINT BOSS - Fixing the hooks so it works for low level executor (also works for roblox studio environment)
 ]]
-
--- shuts down the previous instance of SimpleSpy
 --// Rhook installation
 local decompile = decompile or warn('ERROR LEVEL 3 : EXPLOIT FUNCTION NOT SUPPORTED (DECOMPILE)')
 local makefolder = makefolder or warn('ERROR LEVEL 3 : EXPLOIT FUNCTION NOT SUPPORTED (DECOMPILE)')
 local writefile = writefile or warn('ERROR LEVEL 3 : EXPLOIT FUNCTION NOT SUPPORTED (DECOMPILE)')
 local appendfile = appendfile or warn('ERROR LEVEL 3 : EXPLOIT FUNCTION NOT SUPPORTED (DECOMPILE)')
+local _req = http.request
+local _spy = {}
 makefolder('SimpleSpyLite')
 makefolder('SimpleSpyLite//DumpLogs')
 makefolder('SimpleSpyLite//DumpLogs//' .. game.PlaceId)
 makefolder('SimpleSpyLite//ScanLogs')
 makefolder('SimpleSpyLite//ScanLogs//' .. game.PlaceId)
+local logs_count = 0
 function save_logs(path)
+	warn('Dumping path: game.' .. tostring(path:GetFullName()))
 	for _,scripts in ipairs(path:GetDescendants()) do
 		if scripts:IsA('LocalScript') then
+			logs_count = logs_count + 1
 			makefolder('SimpleSpyLite//DumpLogs//' .. game.PlaceId .. '//game.' .. scripts:GetFullName())
-			appendfile('SimpleSpyLite//DumpLogs//' .. game.PlaceId .. '//game.' .. scripts:GetFullName() .. '//Source.txt', decompile(scripts))
-			appendfile('SimpleSpyLite//DumpLogs//' .. game.PlaceId .. '//game.' .. scripts:GetFullName() .. '//Scanned_Remote.txt', 'h')
+			writefile('SimpleSpyLite//DumpLogs//' .. game.PlaceId .. '//game.' .. scripts:GetFullName() .. '//Source.txt', decompile(scripts))
+			writefile('SimpleSpyLite//DumpLogs//' .. game.PlaceId .. '//game.' .. scripts:GetFullName() .. '//Scanned_Remote.txt', 'h')
+			warn('Dumping progress: '.. logs_count)
 		end
 	end
+	logs_count = 0
 end
 getgenv().abss = _G.data['CursorOffset'] -- the offset of the cursor had to make a global var so i can calculate the exact position
 
 if _G.data['SaveDecompileLogs'] then
 	warn('⚠️ - Saving decompile logs...')
 	local cur_time = tick()
-	save_logs(game.Players.LocalPlayer)
+	for i,v in pairs(_G.data['PathToDump']) do
+		save_logs(v)
+	end
 	if game.Players.LocalPlayer.Character then
 	save_logs(game.Players.LocalPlayer.Character)
 	end
-	save_logs(game:GetService('ReplicatedStorage'))
-	save_logs(game:GetService('ReplicatedFirst'))
 	print('✅ - LocalScripts have been dumped! | time taken: ' .. tick() - cur_time .. ' seconds')
 end
 warn('⚠️ - Initializing RemoteHook/main.lua')
@@ -52,7 +55,7 @@ if _G.data['SaveScanLogs'] then
 	local cur_time = tick()
 	for _,scripts in ipairs(game:GetDescendants()) do
 		if scripts:IsA('LocalScript') then
-			appendfile('SimpleSpyLite//ScanLogs//'.. game.PlaceId .. '//game.' .. scripts:GetFullName() .. '.txt', 'game.' .. scripts:GetFullName())
+			writefile('SimpleSpyLite//ScanLogs//'.. game.PlaceId .. '//game.' .. scripts:GetFullName() .. '.txt', 'game.' .. scripts:GetFullName())
 		end
 	end
 	print('✅ - Scan logs has been saved! | time taken: ' .. tick() - cur_time .. ' seconds')
@@ -1292,6 +1295,7 @@ function newRemote(type, name, args, remote, function_info, blocked, src, return
 		Source = src,
 		GenScript = "-- Generating, please wait... (click to reload)\n-- (If this message persists, the remote args are likely extremely long)",
 		ReturnValue = returnValue,
+		Func = function_info,
 	}
 	logs[#logs + 1] = log
     log.GenScript = genScript(remote, args)
@@ -2099,7 +2103,7 @@ end, function()
 end)
 
 -- Executes the contents of the codebox through loadstring
-newButton("Run Code", function()
+newButton("Fire Remote", function()
 	return "Click to execute code"
 end, function()
 	local orText = "Click to execute code"
@@ -2113,7 +2117,21 @@ end, function()
 		TextLabel.Text = "Execution error!"
 	end
 end)
-
+newButton("Intercept Request", function()
+	return "Click to run request"
+end, function()
+	local orText = "Click to execute code"
+	TextLabel.Text = "Executing..."
+	local succeeded = pcall(function()
+		return http.request(selected.Func)
+	end)
+	if succeeded then
+		TextLabel.Text = "Executed successfully!"
+	else
+		TextLabel.Text = "Execution error!"
+	end
+end)
+local cnt = 0
 --- Gets the calling script (not super reliable but w/e)
 newButton("Decompile", function()
 	return "Click to copy remote calling script to clipboard\nWARNING: Not super reliable, nil == could not find"
@@ -2125,24 +2143,31 @@ end, function()
 		if _G.data['SaveScanLogs'] then
 			warn('Method: SaveScanLogs')
 		for i,v in ipairs(listfiles('SimpleSpyLite//ScanLogs//' .. game.PlaceId)) do
-			warn('Decompiling remote progress: '..i,v)
-			if isfolder('SimpleSpyLite//DumpLogs//' .. game.PlaceId .. v) then
-				if isfile('SimpleSpyLite//DumpLogs//' .. game.PlaceId .. v .. '//Source.txt') then
-					
-					local script = readfile('SimpleSpyLite//DumpLogs//' .. game.PlaceId .. v .. '//Source.txt')
-					if code.traceline(script, selected.Remote.Name) then
-						warn('Traced a calling script! ' .. v:GetFullName())
+			cnt = cnt + 1
+			warn('Dumping remotes progress: '..cnt)
+			if isfolder('SimpleSpyLite//DumpLogs//' .. game.PlaceId .. "//" .. readfile(v)) then
+				if isfile('SimpleSpyLite//DumpLogs//' .. game.PlaceId .. "//" .. readfile(v) .. '//Source.txt') then
+					local script = readfile('SimpleSpyLite//DumpLogs//' .. game.PlaceId .. "//" .. readfile(v) .. '//Source.txt')
+					--for i,v in ipairs(selected.Remote) do
+					--print(i,v)
+					--for k,g in pairs(v) do
+					--	print(k,g)
+					--end
+					if code.traceline(script, selected.Name) then
 						setclipboard(script)
+						warn('Successfully dumped!')
 					end
+				--end
 				end
 			end
 		end
+		cnt = 0
 	else
 		for _,v in ipairs(game.Players.LocalPlayer:GetDescendants()) do
             if v:IsA('LocalScript') then
                 local script = decompile(v)
                 
-                if code.traceline(script, selected.Remote.Name) then
+                if code.traceline(script, selected.Name) then
                     warn('Traced a calling script! ' .. v:GetFullName())
 		setclipboard(script)
                 end
@@ -2153,7 +2178,7 @@ end, function()
             if v:IsA('LocalScript') then
                 local script = decompile(v)
                 
-                if code.traceline(script, selected.Remote.Name) then
+                if code.traceline(script, selected.Name) then
                     warn('Traced a calling script! ' .. v:GetFullName())
 		setclipboard(script)
                 end
@@ -2405,3 +2430,22 @@ game.DescendantAdded:Connect(function(remote)
     end
 end)
 warn('Simplespy v2.5 has been loaded!')
+print('a1')
+getgenv().http.request = function(...) -- intercept
+    local args = ...
+    for i, v in pairs(args) do
+        _spy[i] = v
+    end
+	local _args = {
+		[1] = _spy,
+		[2] = [[http.request([1]) -- remove args and make [1] as a table ex: ( local response = {method = \"GET\"} ) and [2] http.request(response)]] 
+	}
+	newRemote('function', 'req-log', _args, workspace, _spy, false, "abc", false)
+	_spy = {}
+	if not _G['InterceptUntilRan'] then
+    local response = _req(args)
+	return response
+	end
+	return args
+end
+print('a2')
